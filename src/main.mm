@@ -9,11 +9,23 @@ using namespace geode::prelude;
 // Helper to create and configure a display link for 120Hz
 static CADisplayLink* s_displayLink = nil;
 
+// Dedicated target class for the display link callback
+@interface iOS120HzDisplayLinkTarget : NSObject
+- (void)tick:(CADisplayLink*)link;
+@end
+@implementation iOS120HzDisplayLinkTarget
+- (void)tick:(CADisplayLink*)link {
+    // No-op: actual rendering is driven by Cocos2d-x
+}
+@end
+
+static iOS120HzDisplayLinkTarget* s_linkTarget = nil;
+
 static void setupDisplayLink() {
     if (s_displayLink) return;
 
-    // Create a display link with a dummy target
-    s_displayLink = [CADisplayLink displayLinkWithTarget:[NSObject new] selector:@selector(description)];
+    s_linkTarget = [[iOS120HzDisplayLinkTarget alloc] init];
+    s_displayLink = [CADisplayLink displayLinkWithTarget:s_linkTarget selector:@selector(tick:)];
     if (@available(iOS 15.0, *)) {
         s_displayLink.preferredFrameRateRange = CAFrameRateRangeMake(80, 120, 120);
     } else {
@@ -72,6 +84,8 @@ class $modify(iOS120HzDirector, CCDirector) {
     [self ios120hz_viewDidLoad]; // Call original (swizzled)
 
     if (@available(iOS 15.0, *)) {
+        // This display link lives for the process lifetime (game mod),
+        // so the retain on self is intentional and acceptable.
         CADisplayLink* displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(ios120hz_update:)];
         displayLink.preferredFrameRateRange = CAFrameRateRangeMake(80, 120, 120);
         [displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
