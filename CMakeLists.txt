@@ -5,16 +5,22 @@ set(CMAKE_OSX_ARCHITECTURES "arm64")
 
 project(iOS120Hz VERSION 1.0.0)
 
-# Find Geode
-find_package(Geode REQUIRED)
+# Find Geode SDK via environment variable
+if (NOT DEFINED ENV{GEODE_SDK})
+    message(FATAL_ERROR "Unable to find Geode SDK! Please define GEODE_SDK environment variable to point to Geode")
+else()
+    message(STATUS "Found Geode: $ENV{GEODE_SDK}")
+endif()
+
+add_subdirectory($ENV{GEODE_SDK} ${CMAKE_CURRENT_BINARY_DIR}/geode)
 
 # Create the mod
-add_library(${PROJECT_NAME} SHARED
+add_library(${PROJECT_NAME} MODULE
     src/main.mm
 )
 
 # Link frameworks needed for iOS display
-if(IOS)
+if(CMAKE_SYSTEM_NAME STREQUAL "iOS")
     target_link_libraries(${PROJECT_NAME} PRIVATE
         "-framework QuartzCore"
         "-framework UIKit"
@@ -22,7 +28,5 @@ if(IOS)
     )
 endif()
 
-target_link_libraries(${PROJECT_NAME} PRIVATE Geode::Geode)
-
-# Create Geode mod
+# Create Geode mod (links geode-sdk automatically)
 setup_geode_mod(${PROJECT_NAME})
