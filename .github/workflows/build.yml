@@ -16,14 +16,16 @@ jobs:
 
       - name: Install Geode CLI
         run: |
-          curl -LO https://github.com/geode-sdk/cli/releases/latest/download/geode-$(uname -m)-apple-darwin.tar.gz
-          tar xzvf geode-*.tar.gz
+          wget --max-redirect=10 -O geode-cli.tar.gz "https://github.com/geode-sdk/cli/releases/download/v3.7.4/geode-cli-x86_64-apple-darwin.tar.gz"
+          tar xzvf geode-cli.tar.gz
+          chmod +x geode
           sudo mv geode /usr/local/bin/
           geode sdk install "$HOME/Documents/Geode"
           geode sdk install-binaries
 
       - name: Build iOS mod
         run: |
+          export PATH="/usr/local/bin:$PATH"
           export GEODE_SDK="$HOME/Documents/Geode"
           geode build --target ios
 
