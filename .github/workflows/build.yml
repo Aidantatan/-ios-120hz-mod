@@ -16,8 +16,9 @@ jobs:
 
       - name: Install Geode CLI
         run: |
-          brew tap geode-sdk/tap
-          brew install geode-cli
+          curl -LO https://github.com/geode-sdk/cli/releases/latest/download/geode-$(uname -m)-apple-darwin.tar.gz
+          tar xzvf geode-*.tar.gz
+          sudo mv geode /usr/local/bin/
           geode sdk install "$HOME/Documents/Geode"
           geode sdk install-binaries
 
