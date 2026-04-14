@@ -6,6 +6,23 @@
 
 using namespace geode::prelude;
 
+// Helper to create and configure a display link for 120Hz
+static CADisplayLink* s_displayLink = nil;
+
+static void setupDisplayLink() {
+    if (s_displayLink) return;
+
+    // Create a display link with a dummy target
+    s_displayLink = [CADisplayLink displayLinkWithTarget:[NSObject new] selector:@selector(description)];
+    if (@available(iOS 15.0, *)) {
+        s_displayLink.preferredFrameRateRange = CAFrameRateRangeMake(80, 120, 120);
+    } else {
+        s_displayLink.preferredFramesPerSecond = 120;
+    }
+    [s_displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
+    log::info("[iOS120Hz] Display link configured for 120Hz");
+}
+
 // Hook into AppDelegate to modify display link
 class $modify(iOS120HzAppDelegate, AppDelegate) {
     bool applicationDidFinishLaunching() {
@@ -16,54 +33,11 @@ class $modify(iOS120HzAppDelegate, AppDelegate) {
 
         log::info("[iOS120Hz] Initializing 120Hz support...");
 
-        // Get the key window's display link
-        UIApplication* app = [UIApplication sharedApplication];
-        UIWindow* keyWindow = nil;
-
-        for (UIWindow* window in app.windows) {
-            if (window.isKeyWindow) {
-                keyWindow = window;
-                break;
-            }
-        }
-
-        if (!keyWindow && app.windows.count > 0) {
-            keyWindow = app.windows[0];
-        }
-
-        if (keyWindow) {
-            // Force 120Hz on the screen
-            UIScreen* screen = keyWindow.screen;
-            if (@available(iOS 15.0, *)) {
-                CAFrameRateRange frameRateRange = CAFrameRateRangeMake(80, 120, 120);
-
-                // Find and modify the display link
-                [[NSNotificationCenter defaultCenter]
-                    addObserverForName:CADisplayLinkDidRefreshNotification
-                    object:nil
-                    queue:[NSOperationQueue mainQueue]
-                    usingBlock:^(NSNotification *notification) {
-                        CADisplayLink* displayLink = notification.object;
-                        if (displayLink) {
-                            displayLink.preferredFrameRateRange = frameRateRange;
-                        }
-                    }];
-            } else if (@available(iOS 10.0, *)) {
-                // Fallback for older iOS
-                [[NSNotificationCenter defaultCenter]
-                    addObserverForName:CADisplayLinkDidRefreshNotification
-                    object:nil
-                    queue:[NSOperationQueue mainQueue]
-                    usingBlock:^(NSNotification *notification) {
-                        CADisplayLink* displayLink = notification.object;
-                        if (displayLink) {
-                            displayLink.preferredFramesPerSecond = 120;
-                        }
-                    }];
-            }
-
-            log::info("[iOS120Hz] Display link configured for 120Hz");
-        }
+        // Schedule display link setup on next run loop iteration
+        // to ensure the window and view hierarchy are ready
+        dispatch_async(dispatch_get_main_queue(), ^{
+            setupDisplayLink();
+        });
 
         return true;
     }
@@ -95,24 +69,12 @@ class $modify(iOS120HzDirector, CCDirector) {
 }
 
 - (void)ios120hz_viewDidLoad {
-    [self ios120hz_viewDidLoad]; // Call original
+    [self ios120hz_viewDidLoad]; // Call original (swizzled)
 
     if (@available(iOS 15.0, *)) {
-        // Set preferred frame rate range for Metal/CAMetalLayer
-        CAFrameRateRange frameRateRange = CAFrameRateRangeMake(80, 120, 120);
-
-        // For MTKView/CAMetalLayer
-        for (CALayer* layer in self.view.layer.sublayers) {
-            if ([layer isKindOfClass:[CAMetalLayer class]]) {
-                CAMetalLayer* metalLayer = (CAMetalLayer*)layer;
-                // Set display link for this layer
-                CADisplayLink* displayLink = [self.view displayLinkWithTarget:self selector:@selector(ios120hz_update:)];
-                if (displayLink) {
-                    displayLink.preferredFrameRateRange = frameRateRange;
-                    [displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
-                }
-            }
-        }
+        CADisplayLink* displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(ios120hz_update:)];
+        displayLink.preferredFrameRateRange = CAFrameRateRangeMake(80, 120, 120);
+        [displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
     }
 }
 
