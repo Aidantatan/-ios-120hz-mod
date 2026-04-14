@@ -8,47 +8,36 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-ios:
-    runs-on: macos-latest
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: iOS
+            os: macos-latest
+            target: iOS
+
+    runs-on: ${{ matrix.os }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Install jq dependency
-        run: brew install jq
-
-      - name: Install Geode CLI
-        run: |
-          # Get macOS release URL using jq
-          LATEST_URL=$(curl -s https://api.github.com/repos/geode-sdk/cli/releases/latest | jq -r '.assets[] | select(.name | contains("darwin")) | select(.name | contains("sha256") | not) | .browser_download_url' | head -1)
-          if [ -z "$LATEST_URL" ]; then
-            echo "Failed to find download URL"
-            exit 1
-          fi
-          echo "Downloading from: $LATEST_URL"
-          curl -L -o geode-cli.tar.gz "$LATEST_URL"
-          tar xzvf geode-cli.tar.gz
-          chmod +x geode
-          sudo mv geode /usr/local/bin/
-          geode sdk install "$HOME/Documents/Geode"
-          geode sdk install-binaries
-
-      - name: Build iOS mod
-        run: |
-          export PATH="/usr/local/bin:$PATH"
-          export GEODE_SDK="$HOME/Documents/Geode"
-          geode build --target ios
+      - name:
+ ${{ matrix.name }}
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          target: ${{ matrix.target }}
+          prescribed: false
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
           name: iOS-120Hz-Mod
-          path: build/*.geode
+          path: build-*/
           if-no-files-found: error
 
       - name: Create Release (on tagged push)
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v1
         with:
-          files: build/*.geode
+          files: build-*/*.geode
           generate_release_notes: true
