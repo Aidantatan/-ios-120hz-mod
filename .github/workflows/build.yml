@@ -1,0 +1,40 @@
+name: Build iOS 120Hz Mod
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Geode CLI
+        run: |
+          brew install geode
+          geode sdk install "$HOME/Documents/Geode"
+          geode sdk install-binaries
+
+      - name: Build iOS mod
+        run: |
+          export GEODE_SDK="$HOME/Documents/Geode"
+          geode build --target ios
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: iOS-120Hz-Mod
+          path: build/*.geode
+          if-no-files-found: error
+
+      - name: Create Release (on tagged push)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/*.geode
+          generate_release_notes: true
