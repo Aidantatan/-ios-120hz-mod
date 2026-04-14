@@ -16,7 +16,8 @@ jobs:
 
       - name: Install Geode CLI
         run: |
-          brew install geode
+          brew tap geode-sdk/tap
+          brew install geode-cli
           geode sdk install "$HOME/Documents/Geode"
           geode sdk install-binaries
 
