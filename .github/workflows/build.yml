@@ -14,11 +14,19 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Install jq dependency
+        run: brew install jq
+
       - name: Install Geode CLI
         run: |
-          # Get latest release URL
-          LATEST_URL=$(curl -s https://api.github.com/repos/geode-sdk/cli/releases/latest | grep '"browser_download_url".*apple-darwin' | cut -d '"' -f 4)
-          wget --max-redirect=10 -O geode-cli.tar.gz "$LATEST_URL"
+          # Get macOS release URL using jq
+          LATEST_URL=$(curl -s https://api.github.com/repos/geode-sdk/cli/releases/latest | jq -r '.assets[] | select(.name | contains("darwin")) | select(.name | contains("sha256") | not) | .browser_download_url' | head -1)
+          if [ -z "$LATEST_URL" ]; then
+            echo "Failed to find download URL"
+            exit 1
+          fi
+          echo "Downloading from: $LATEST_URL"
+          curl -L -o geode-cli.tar.gz "$LATEST_URL"
           tar xzvf geode-cli.tar.gz
           chmod +x geode
           sudo mv geode /usr/local/bin/
